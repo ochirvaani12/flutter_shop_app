@@ -11,7 +11,9 @@ class ProductView extends StatelessWidget {
 
   _onTap(BuildContext context) {
     Navigator.push(
-        context, MaterialPageRoute(builder: (_) => ProductDetailScreen(data)));
+      context,
+      MaterialPageRoute(builder: (_) => ProductDetailScreen(product: data)),
+    );
   }
 
   @override
@@ -61,17 +63,21 @@ class ProductView extends StatelessWidget {
                             ),
                           ),
                           InkWell(
-                              onTap: () {
-                                if(!provider.isLogged) {
-                                  Navigator.pushNamed(context, '/sign-in');
-                                } else {
-                                  provider.changeFavProduct(data.id!);
-                                }
-                              },
-                              child: Icon(
-                                Icons.favorite,
-                                color: provider.favProducts.contains(data.id) ?  Colors.yellow : Colors.grey,
-                              )),
+                            onTap: () {
+                              if (!provider.isLogged) {
+                                Navigator.pushNamed(context, '/sign-in');
+                              } else {
+                                provider.changeFavProduct(data.id!);
+                              }
+                            },
+                            child: Icon(
+                              Icons.favorite,
+                              color:
+                                  provider.favProducts.contains(data.id)
+                                      ? Colors.yellow
+                                      : Colors.grey,
+                            ),
+                          ),
                         ],
                       ),
                     ],

@@ -20,19 +20,16 @@ class GlobalProvider extends ChangeNotifier {
   }
 
   final ShopRepository repository = ShopRepository();
-  final storage = const FlutterSecureStorage();
 
   int currentIdx = 0;
-
-  List<ProductModel> products = [];
 
   User? loggedUser;
   bool isLogged = false;
 
   StreamSubscription<DocumentSnapshot>? _cartSubscription;
-  CartModel cart = CartModel(products: []);
-
   StreamSubscription<QuerySnapshot>? _favProductsSubscription;
+  List<ProductModel> products = [];
+  CartModel cart = CartModel(products: []);
   List<int> favProducts = [];
 
   Future<void> init() async {
@@ -50,25 +47,21 @@ class GlobalProvider extends ChangeNotifier {
             .collection('cart')
             .doc(user.uid)
             .snapshots()
-            .listen(
-          (doc) {
-            if (doc.exists && doc.data() != null) {
-              cart = CartModel.fromJson(doc.data() as Map<String, dynamic>);
-            }
-          },
-        );
+            .listen((doc) {
+              if (doc.exists && doc.data() != null) {
+                cart = CartModel.fromJson(doc.data() as Map<String, dynamic>);
+              }
+            });
 
         _favProductsSubscription = FirebaseFirestore.instance
             .collection('favProducts')
             .snapshots()
-            .listen(
-          (snapshot) {
-            favProducts = [];
-            for (final document in snapshot.docs) {
-              favProducts.add(document.data()['productId'] as int);
-            }
-          },
-        );
+            .listen((snapshot) {
+              favProducts = [];
+              for (final document in snapshot.docs) {
+                favProducts.add(document.data()['productId'] as int);
+              }
+            });
       } else {
         isLogged = false;
         cart = CartModel(products: []);
@@ -83,6 +76,45 @@ class GlobalProvider extends ChangeNotifier {
     getProducts();
   }
 
+  Future<void> fetchComments(int productId) async {
+    final index = products.indexWhere((p) => p.id == productId);
+
+    final docRef = FirebaseFirestore.instance
+        .collection('productComments')
+        .doc(productId.toString());
+
+    final doc = await docRef.get();
+    if (doc.exists && doc.data() != null) {
+      final data = doc.data()!;
+      products[index].comments = List<String>.from(data['comments'] ?? []);
+    } else {
+      products[index].comments = [];
+    }
+    notifyListeners();
+  }
+
+  Future<void> addComment(int productId, String comment) async {
+    final index = products.indexWhere((p) => p.id == productId);
+
+    final docRef = FirebaseFirestore.instance
+        .collection('productComments')
+        .doc(productId.toString());
+
+    // Get existing comments
+    List<String> comments = products[index].comments ?? [];
+    comments.add(comment);
+
+    // Save back to Firestore
+    await docRef.set({
+      'productId': productId,
+      'comments': comments,
+    });
+
+    await fetchComments(productId);
+
+    notifyListeners();
+  }
+
   Future<void> getProducts() async {
     if (products.isEmpty) {
       products = await repository.fetchProductData();
@@ -92,8 +124,9 @@ class GlobalProvider extends ChangeNotifier {
   }
 
   Future<void> saveCartToFirestore(CartModel cart) async {
-    final docRef =
-        FirebaseFirestore.instance.collection('cart').doc(loggedUser?.uid);
+    final docRef = FirebaseFirestore.instance
+        .collection('cart')
+        .doc(loggedUser?.uid);
     await docRef.set(cart.toJson());
   }
 

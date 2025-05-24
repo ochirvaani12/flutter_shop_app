@@ -1,4 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_ui_auth/firebase_ui_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -10,6 +12,31 @@ import '../../../screens/home_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await EasyLocalization.ensureInitialized();
+  await Firebase.initializeApp();
+
+  FirebaseMessaging messaging = FirebaseMessaging.instance;
+
+  // Request permissions for iOS (optional on Android)
+  NotificationSettings settings = await messaging.requestPermission(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
+
+  // Get and print the FCM token
+  String? token = await messaging.getToken();
+  print("FCM Token: $token");
+
+  // Listen for foreground messages
+  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    print('Received a message in foreground!');
+    print('Message data: ${message.data}');
+
+    if (message.notification != null) {
+      print('Notification title: ${message.notification!.title}');
+      print('Notification body: ${message.notification!.body}');
+    }
+  });
 
   final prefs = await SharedPreferences.getInstance();
   final localeCode = prefs.getString('locale') ?? 'mn';
@@ -21,7 +48,9 @@ void main() async {
       fallbackLocale: Locale('mn'),
       startLocale: Locale(localeCode),
       child: ChangeNotifierProvider(
-          create: (context) => GlobalProvider(), child: const MyApp()),
+        create: (context) => GlobalProvider(),
+        child: const MyApp(),
+      ),
     ),
   );
 }
@@ -40,9 +69,7 @@ final _router = GoRouter(
                 ForgotPasswordAction(((context, email) {
                   final uri = Uri(
                     path: '/sign-in/forgot-password',
-                    queryParameters: <String, String?>{
-                      'email': email,
-                    },
+                    queryParameters: <String, String?>{'email': email},
                   );
                   context.push(uri.toString());
                 })),
@@ -50,7 +77,7 @@ final _router = GoRouter(
                   final user = switch (state) {
                     SignedIn state => state.user,
                     UserCreated state => state.credential.user,
-                    _ => null
+                    _ => null,
                   };
                   if (user == null) {
                     return;
@@ -61,8 +88,10 @@ final _router = GoRouter(
                   if (!user.emailVerified) {
                     user.sendEmailVerification();
                     const snackBar = SnackBar(
-                        content: Text(
-                            'Please check your email to verify your email address'));
+                      content: Text(
+                        'Please check your email to verify your email address',
+                      ),
+                    );
                     ScaffoldMessenger.of(context).showSnackBar(snackBar);
                   }
                   context.pushReplacement('/');

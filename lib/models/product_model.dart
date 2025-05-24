@@ -9,6 +9,7 @@ class ProductModel {
   final String? category;
   final String? image;
   final Rating? rating;
+  List<String> comments = [];
 
   ProductModel({
     this.id,
