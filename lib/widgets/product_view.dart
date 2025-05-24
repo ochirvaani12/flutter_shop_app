@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shop_app/screens/product_detail_screen.dart';
 import '../models/product_model.dart';
 import '../provider/global_provider.dart';
+import '../screens/product_detail_screen.dart';
 
 class ProductView extends StatelessWidget {
   final ProductModel data;
@@ -62,15 +62,15 @@ class ProductView extends StatelessWidget {
                           ),
                           InkWell(
                               onTap: () {
-                                if(provider.currentUser == null) {
-                                  Navigator.pushNamed(context, '/login');
+                                if(!provider.isLogged) {
+                                  Navigator.pushNamed(context, '/sign-in');
                                 } else {
-                                  provider.changeFavItems(data);
+                                  provider.changeFavProduct(data.id!);
                                 }
                               },
                               child: Icon(
                                 Icons.favorite,
-                                color: (provider.favItems.indexWhere((e) => e.id == data.id)) == -1 ?  Colors.grey : Colors.yellow,
+                                color: provider.favProducts.contains(data.id) ?  Colors.yellow : Colors.grey,
                               )),
                         ],
                       ),

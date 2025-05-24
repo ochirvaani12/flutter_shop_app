@@ -1,29 +1,19 @@
 import 'package:json_annotation/json_annotation.dart';
-import 'package:shop_app/models/product_model.dart';
 
 @JsonSerializable(createToJson: false)
 class CartModel {
-  final int? id;
-  final int? userId;
   List<CartProductModel>? products = [];
 
   CartModel({
-    this.id,
-    this.userId,
     this.products,
   });
 
-  CartModel fromJson(Map<String, dynamic> json) {
+  static CartModel fromJson(Map<String, dynamic> json) {
     return _$CartModelFromJson(json);
   }
 
-  static List<CartModel> fromList(List<dynamic> data) =>
-      data.map((e) => CartModel().fromJson(e)).toList();
-
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
-      'userId': userId,
       'products': products?.map((e) => e.toJson()).toList(),
     };
   }
@@ -53,8 +43,6 @@ class CartProductModel {
 }
 
 CartModel _$CartModelFromJson(Map<String, dynamic> json) => CartModel(
-      id: json['id'] as int?,
-      userId: json['userId'] as int?,
       products: json['products'] == null
           ? []
           : CartProductModel.fromList(json['products']),

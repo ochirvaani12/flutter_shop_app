@@ -15,47 +15,48 @@ class FavoriteScreen extends StatelessWidget {
           appBar: AppBar(
             title: Text('title_favorite'.tr()),
           ),
-          body: provider.favItems.isNotEmpty
-              ? ListView.builder(
-                  itemCount: provider.favItems.length,
-                  itemBuilder: (context, index) {
-                    return Card(
-                      margin: EdgeInsets.all(8.0),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color:
-                                  Colors.black.withOpacity(0.2), // shadow color
-                              spreadRadius: 2, // how wide the shadow spreads
-                              blurRadius: 6, // softness of the shadow
-                              offset: Offset(0, 3), // x and y axis (right/down)
-                            ),
-                          ],
-                        ),
-                        padding: const EdgeInsets.all(10.0),
-                        child: ListTile(
-                          leading: Image.network(
-                            provider.favItems[index].image!,
-                            width: 50,
-                            height: 80,
-                          ),
-                          title: Text(
-                            provider.favItems[index].title!,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
+          body: ListView.builder(
+            itemCount: provider.favProducts.length,
+            itemBuilder: (context, index) {
+              return Card(
+                margin: const EdgeInsets.all(8.0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2), // shadow color
+                        spreadRadius: 2, // how wide the shadow spreads
+                        blurRadius: 6, // softness of the shadow
+                        offset: const Offset(0, 3), // x and y axis (right/down)
                       ),
-                    );
-                  },
-                )
-              : const Center(
-                  child: Text('Хадгалсан бараа байхгүй байна'),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(10.0),
+                  child: ListTile(
+                    leading: Image.network(
+                      provider
+                          .products[provider.products.indexWhere(
+                              (p) => p.id == provider.favProducts[index])]
+                          .image!,
+                      width: 50,
+                      height: 80,
+                    ),
+                    title: Text(
+                      provider
+                          .products[provider.products.indexWhere(
+                              (p) => p.id == provider.favProducts[index])]
+                          .title!,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ),
+              );
+            },
+          ),
         );
       },
     );

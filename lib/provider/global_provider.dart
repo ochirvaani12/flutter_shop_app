@@ -1,53 +1,86 @@
-import 'dart:convert';
-import 'package:flutter/services.dart' show rootBundle;
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:shop_app/models/cart_model.dart';
-import 'package:shop_app/models/product_model.dart';
 
-import '../models/user_model.dart';
+import '../firebase_option.dart';
+import '../models/cart_model.dart';
+import '../models/product_model.dart';
 import '../repository/repository.dart';
 
+import 'package:cloud_firestore/cloud_firestore.dart'; // new
+import 'package:firebase_auth/firebase_auth.dart'
+    hide EmailAuthProvider, PhoneAuthProvider;
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_ui_auth/firebase_ui_auth.dart';
+
 class GlobalProvider extends ChangeNotifier {
-  int currentIdx = 0;
-
-  List<ProductModel> products = [];
-  List<ProductModel> favItems = [];
-
-  CartModel? cart;
-
-  String? token;
-  UserModel? currentUser;
+  GlobalProvider() {
+    init();
+  }
 
   final ShopRepository repository = ShopRepository();
   final storage = const FlutterSecureStorage();
 
-  Future<bool> login(String username, String password) async {
-    bool isFound = false;
+  int currentIdx = 0;
 
-    final String res = await rootBundle.loadString('assets/users.json');
-    List<UserModel> users = UserModel.fromList(jsonDecode(res));
-    for (UserModel i in users) {
-      if (i.username == username && i.password == password) {
-        isFound = true;
+  List<ProductModel> products = [];
 
-        print("found");
+  User? loggedUser;
+  bool isLogged = false;
 
-        token = await repository.login(username, password);
+  StreamSubscription<DocumentSnapshot>? _cartSubscription;
+  CartModel cart = CartModel(products: []);
 
+  StreamSubscription<QuerySnapshot>? _favProductsSubscription;
+  List<int> favProducts = [];
 
-        print("token");
-        await storage.write(key: 'token', value: token);
+  Future<void> init() async {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
 
-        currentUser = i;
-        break;
+    FirebaseUIAuth.configureProviders([EmailAuthProvider()]);
+
+    FirebaseAuth.instance.userChanges().listen((user) {
+      if (user != null) {
+        isLogged = true;
+        loggedUser = user;
+        _cartSubscription = FirebaseFirestore.instance
+            .collection('cart')
+            .doc(user.uid)
+            .snapshots()
+            .listen(
+          (doc) {
+            if (doc.exists && doc.data() != null) {
+              cart = CartModel.fromJson(doc.data() as Map<String, dynamic>);
+            }
+          },
+        );
+
+        _favProductsSubscription = FirebaseFirestore.instance
+            .collection('favProducts')
+            .snapshots()
+            .listen(
+          (snapshot) {
+            favProducts = [];
+            for (final document in snapshot.docs) {
+              favProducts.add(document.data()['productId'] as int);
+            }
+          },
+        );
+      } else {
+        isLogged = false;
+        cart = CartModel(products: []);
+        favProducts = [];
+        _cartSubscription?.cancel();
+        _favProductsSubscription?.cancel();
       }
-    }
+    });
 
     notifyListeners();
 
-    return isFound;
+    getProducts();
   }
 
   Future<void> getProducts() async {
@@ -58,61 +91,54 @@ class GlobalProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> getCart(bool forceRefresh) async {
-    if(forceRefresh || cart == null) {
-      List<CartModel> allCarts = await repository.fetchCartData();
-
-      for (CartModel i in allCarts) {
-        if (i.userId == currentUser?.id) {
-          cart = i;
-          break;
-        }
-      }
-
-      notifyListeners();
-    }
+  Future<void> saveCartToFirestore(CartModel cart) async {
+    final docRef =
+        FirebaseFirestore.instance.collection('cart').doc(loggedUser?.uid);
+    await docRef.set(cart.toJson());
   }
 
   Future<void> addCartProduct(int productId) async {
-    final index = cart!.products!.indexWhere((e) => e.productId == productId);
+    final index = cart.products!.indexWhere((p) => p.productId == productId);
 
-    if (index != -1) {
-      cart!.products!.add(CartProductModel(productId: productId, quantity: 1));
+    if (index == -1) {
+      cart.products!.add(CartProductModel(productId: productId, quantity: 1));
     } else {
-      cart!.products![index].quantity = cart!.products![index].quantity! + 1;
+      cart.products![index].quantity =
+          (cart.products![index].quantity ?? 0) + 1;
     }
 
-    await repository.updateCartData(cart!);
-
-    getCart(true);
-
+    await saveCartToFirestore(cart);
     notifyListeners();
   }
 
   Future<void> subCartProduct(int productId) async {
-    final index = cart!.products!.indexWhere((e) => e.productId == productId);
+    final index = cart.products!.indexWhere((p) => p.productId == productId);
+    if (index == -1) return;
 
-    if (index != -1) {
-      if (cart!.products![index].quantity! <= 1) {
-        cart!.products!.removeAt(index);
-      } else {
-        cart!.products![index].quantity = cart!.products![index].quantity! - 1;
-      }
+    final currentQty = cart.products![index].quantity ?? 0;
+    if (currentQty > 1) {
+      cart.products![index].quantity = currentQty - 1;
+    } else {
+      cart.products!.removeAt(index);
     }
 
-    await repository.updateCartData(cart!);
-
-    getCart(true);
-
+    await saveCartToFirestore(cart);
     notifyListeners();
   }
 
-  void changeFavItems(ProductModel item) {
-    final exists = favItems.any((e) => e.id == item.id);
-    if (exists) {
-      favItems.removeWhere((e) => e.id == item.id);
+  Future<void> changeFavProduct(int productId) async {
+    final index = favProducts.indexOf(productId);
+    if (index != -1) {
+      favProducts.remove(productId);
     } else {
-      favItems.add(item);
+      favProducts.add(productId);
+    }
+    if (loggedUser != null) {
+      final docRef = FirebaseFirestore.instance
+          .collection('favProducts')
+          .doc(loggedUser!.uid);
+
+      await docRef.set({'productIds': favProducts});
     }
     notifyListeners();
   }

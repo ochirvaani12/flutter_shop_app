@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shop_app/models/product_model.dart';
-import 'package:shop_app/provider/global_provider.dart';
+
+import '../models/product_model.dart';
+import '../provider/global_provider.dart';
 
 // ignore: camel_case_types
 class ProductDetailScreen extends StatelessWidget {
